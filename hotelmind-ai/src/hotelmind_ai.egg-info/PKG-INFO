@@ -1,0 +1,150 @@
+Metadata-Version: 2.4
+Name: hotelmind-ai
+Version: 0.2.0
+Summary: Explainable hotel cancellation intelligence: real-data benchmarks, XGBoost, SHAP and a working dashboard.
+License: MIT
+Keywords: machine-learning,hotel,cancellation-prediction,fastapi
+Requires-Python: <3.14,>=3.12
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy<3,>=1.26
+Requires-Dist: pandas<3,>=2.0
+Requires-Dist: scikit-learn<2,>=1.4
+Requires-Dist: joblib<2,>=1.3
+Requires-Dist: fastapi<1,>=0.110
+Requires-Dist: uvicorn<1,>=0.27
+Requires-Dist: pydantic<3,>=2.5
+Requires-Dist: xgboost<4,>=2.1
+Requires-Dist: shap<1,>=0.46
+Requires-Dist: threadpoolctl<4,>=3.2
+Provides-Extra: dev
+Requires-Dist: pytest<10,>=8; extra == "dev"
+Requires-Dist: httpx<1,>=0.27; extra == "dev"
+Dynamic: license-file
+
+# HotelMind AI
+
+**Explainable hotel booking cancellation intelligence.** A working MIS graduation project by **Eren Kılıç**, Akdeniz University.
+
+HotelMind learns from historical bookings, compares four classification algorithms, and explains individual predictions with SHAP. The Turkish dashboard connects directly to the Python API when run locally; the hosted version runs an export of the **same fitted model** in the browser.
+
+## Start on Windows
+
+1. Extract the release ZIP into a **new folder**.
+2. Open the `hotelmind-ai` folder and double-click **`RUN_HOTELMIND.cmd`**.
+3. Keep the terminal open. The dashboard opens automatically.
+
+Requires **Python 3.12**. The first run installs the tested package versions. PowerShell activation and execution-policy changes are not needed. The release ZIP includes the trained model, reports, and source dataset; the Git repository excludes raw data and executable model artifacts.
+
+Manual setup:
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-tested.txt
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]" -c requirements-tested.txt
+.\.venv\Scripts\python.exe -m hotelmind.launcher
+```
+
+On Linux/macOS, use `python3.12 -m venv .venv` and `.venv/bin/python` instead.
+
+## What works
+
+- A complete reservation form with 17 validated inputs and three example scenarios.
+- Real predictions from a fitted Random Forest, with coherent probability/risk/class labels.
+- TreeSHAP explanations grouped back from one-hot encodings to input fields.
+- Historical monthly booking charts, cancellation rates and hotel breakdowns.
+- Validation comparison of Logistic Regression, Random Forest, XGBoost and a two-hidden-layer MLP.
+- Separate test ROC curve, calibration plot, confusion matrix, precision and recall.
+- Up to 500 CSV rows per batch, downloadable CSV results and JSON experiment reports.
+- Browser-local analysis history, created only by manual analyses.
+- Exact browser/Python inference parity checks, including SHAP contributions.
+
+This is an analysis application. It does not create bookings or write to a PMS.
+
+## Reproduce the experiment from Git
+
+After installing the project:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/download_data.py
+.\.venv\Scripts\python.exe scripts/train.py --data data/raw/hotel_bookings.csv
+.\.venv\Scripts\python.exe scripts/export_dashboard.py
+.\.venv\Scripts\python.exe scripts/verify_browser.py
+.\.venv\Scripts\python.exe -m pytest -q
+node tests/test_csv.mjs
+```
+
+Node 18+ is needed only for browser parity checks and the JavaScript tests. The Python API itself needs no Node runtime.
+
+Training learns imputers, numeric scaling and one-hot encoding **inside** each training pipeline. Approximately 70/15/15 arrival-date partitions are used; no arrival day is split between partitions. The highest **validation average precision** chooses the algorithm. That algorithm is refitted on training + validation and evaluated once on the held-out final period. The test set does not select the model or the decision threshold.
+
+## Measured release results
+
+Data: **119,390 raw / 118,564 valid bookings**, July 2015–August 2017. The 826 excluded rows have no guests, no nights or a negative daily rate. Partitions: 82,937 training / 17,758 validation / 17,869 test.
+
+| Model | Validation AP ↑ | Validation ROC-AUC ↑ | Validation F1 @ 0.50 ↑ |
+|---|---:|---:|---:|
+| **Random Forest — selected** | **0.796726** | **0.825543** | 0.502021 |
+| XGBoost | 0.795465 | 0.825098 | 0.601641 |
+| Logistic Regression | 0.786722 | 0.806688 | 0.536769 |
+| MLP, 64 + 32 hidden units | 0.780398 | 0.809092 | 0.634853 |
+
+The AP difference is a single benchmark result, **not evidence of statistically significant superiority**.
+
+| Selected model, untouched test | Value |
+|---|---:|
+| ROC-AUC | 0.777688 |
+| Average precision | 0.728006 |
+| Accuracy | 0.697577 |
+| Precision @ 0.50 | 0.869933 |
+| Recall @ 0.50 | **0.276433** |
+| F1 @ 0.50 | 0.419549 |
+| Brier score | 0.182260 |
+
+The default threshold misses many cancellations: **5,112 false negatives** against **1,953 true positives**. A good ranking score does not establish a suitable intervention policy. Report all metrics, including this limitation, in the thesis.
+
+Full measured results, version information, timing and curves: `models/metrics.json`. Durations reflect this execution environment and are not a universal speed benchmark.
+
+## API
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn hotelmind.api:app --reload
+```
+
+- `GET /` — dashboard
+- `GET /docs` — Swagger, with a valid request example
+- `GET /health` — service and artifact availability
+- `GET /api/metrics` — current model's measured experiment report
+- `POST /predict` — one booking + optional SHAP (disable with `?include_explanation=false`)
+- `POST /predict/batch` — `{"bookings": [...]}`, 1–500 rows, without per-row SHAP
+
+Risk bands: below 0.30 Low; 0.30–below 0.65 Medium; 0.65+ High. The binary class threshold is separately fixed at 0.50. These are demonstration thresholds and have not been economically optimized.
+
+## Read the code
+
+| Path | Responsibility |
+|---|---|
+| `src/hotelmind/config.py` | Shared input contract and thresholds |
+| `src/hotelmind/data.py` | Cleaning and chronology-preserving partitions |
+| `src/hotelmind/modeling.py` | Four estimators and preprocessing |
+| `src/hotelmind/training.py` | Selection, final fit and test evaluation |
+| `src/hotelmind/explanation.py` | Local SHAP explanations |
+| `src/hotelmind/export.py` | Portable export of fitted preprocessing and model |
+| `src/hotelmind/api.py` | Dashboard + real prediction endpoints |
+| `dist/assets/engine.js` | Browser inference + TreeSHAP |
+| `dist/assets/app.js` | Interactive Turkish dashboard |
+| `tests/` | Validation, temporal boundaries, API, CSV and cross-runtime parity |
+
+## Research limits
+
+These are historical Portuguese hotels, not contemporary Antalya operations. The split is a **retrospective arrival-date benchmark**, not a simulation of when cancellation labels became available. Source snapshots do not establish that ADR, deposit type or guest history were frozen at booking creation. Obvious outcome fields (`reservation_status`, `reservation_status_date`, assigned rooms and booking changes) are excluded, but that does not eliminate all snapshot leakage risk. No guest ID is available for guest-disjoint evaluation.
+
+Probabilities are **uncalibrated**. TreeSHAP is model attribution, not causal explanation. Actual deployment requires local data, booking-time snapshots, label-availability-aware evaluation, calibration, an agreed intervention cost model and monitoring.
+
+## Data provenance
+
+Antonio, N., de Almeida, A., & Nunes, L. (2019). *Hotel booking demand datasets*. Data in Brief 22, 41–49. https://doi.org/10.1016/j.dib.2018.11.126
+
+CSV mirror: R for Data Science / TidyTuesday, 2020-02-11, `hotels.csv`. Its expected SHA-256 is recorded and verified by `scripts/download_data.py`. Code is MIT; third-party data retains its source terms and attribution. See `data/README.md` and `THIRD_PARTY_NOTICES.md`.
+
+Türkçe kullanım: **[docs/START_HERE_TR.md](docs/START_HERE_TR.md)**. Project/thesis walkthrough: **[docs/THESIS_NOTES_TR.md](docs/THESIS_NOTES_TR.md)**.

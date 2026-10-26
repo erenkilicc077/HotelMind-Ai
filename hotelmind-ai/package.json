@@ -1,0 +1,1 @@
+{"name":"hotelmind-ai-dashboard","version":"0.2.0","private":true,"type":"module","scripts":{"check":"node --check dist/assets/app.js && node --check dist/assets/engine.js && node --check dist/assets/analysis-worker.js"}}

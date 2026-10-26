@@ -1,0 +1,7 @@
+{
+  "probability_cases": 31,
+  "shap_cases": 6,
+  "max_probability_error": 4.87659212511371e-07,
+  "max_shap_error": 5.551115123125783e-17,
+  "status": "passed"
+}

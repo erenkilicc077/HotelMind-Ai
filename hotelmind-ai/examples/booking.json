@@ -1,0 +1,19 @@
+{
+  "hotel": "City Hotel",
+  "arrival_date_month": "July",
+  "meal": "BB",
+  "market_segment": "Online TA",
+  "distribution_channel": "TA/TO",
+  "reserved_room_type": "A",
+  "deposit_type": "No Deposit",
+  "customer_type": "Transient",
+  "lead_time": 130,
+  "stays_in_weekend_nights": 2,
+  "stays_in_week_nights": 3,
+  "adults": 2,
+  "children": 0,
+  "babies": 0,
+  "previous_cancellations": 0,
+  "previous_bookings_not_canceled": 0,
+  "adr": 115.5
+}
